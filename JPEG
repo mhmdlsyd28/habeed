@@ -1,1 +1,120 @@
-JPEG Image Encoding.
+%JPEG Image Encoding.
+clc,clear;
+
+% c8 array 
+c8=zeros(8,8);
+for k=0:1:7
+    for r=0:1:7
+        if (k==0)
+        c8(k+1,r+1)=sqrt(1./8)* cos((pi./8)*k*(r+0.5));
+        else 
+            c8(k+1,r+1)=sqrt(2./8)* cos((pi./8)*k*(r+0.5));
+        end
+    end
+end
+
+%-------------
+
+%Reading Image
+Image_original=imread('sigma.jpg');
+Image_original=Image_original(:,:,1);
+Image=(double(Image_original));
+figure;imshow(Image_original); title('Original Image');
+%----------------------
+%%%JPEG encoding
+
+%Dividing Image into blocks
+[r,c] = size(Image);
+Block_Size = 8;
+nr = ceil(r/8);
+nc = ceil(c/8);
+Image_Blocks = struct('Blocks',[]);
+
+Index = 1;
+for Row = 1: +8: r
+    for Column = 1: +8: c
+        
+    Row_End = Row + Block_Size - 1;
+    Column_End = Column + Block_Size - 1;
+        
+    if Row_End > r
+       Row_End = r;
+    end
+    
+    if Column_End > c
+       Column_End = c;
+    end
+    
+    Temporary_Tile = Image(Row:Row_End,Column:Column_End,:);
+    
+    Image_Blocks(Index).Blocks = Temporary_Tile;
+    %subplot(nr,nc,Index); imshow(uint8(Temporary_Tile));
+    Index = Index + 1;
+    
+    end  
+end
+Index=Index-1;
+%---------------
+
+% DCT Block
+for block_index = 1: Index
+    Image_Blocks(block_index).Blocks=(c8)*(Image_Blocks(block_index).Blocks)*transpose(c8);
+end
+%-------------    
+
+
+%-----------------
+%Quantization 
+DCTQ=[16 11 10 16 24 40 51 61 ; 12 12 14 19 26 58 60 55 ; 14 13 16 24 40 57 69 56 ; 14 17 22 29 51 87 80 62 ; 18 22 37 56 68 109 103 77; 24 35 55 64 81 194 113 92;49 64 78 87 103 121 120 101 ; 72 92 95 98 121 100 103 99];
+factor=input('Please enter the scaling factor:  ');
+T=factor*DCTQ ; 
+% temp=img_block;
+for block_index=1:Index
+         Image_Blocks(block_index).Blocks=round((Image_Blocks(block_index).Blocks)./T);
+         % Merging the blocks to see image after Quantization
+         for Row = 1: +Block_Size: r
+             for Column = 1: +Block_Size: c
+                 Height_Of_Block = size( Image_Blocks(block_index).Blocks);
+                 Width_Of_Block = size( Image_Blocks(block_index).Blocks);
+                 Image(Row:Row+Height_Of_Block-1,Column:Column+Width_Of_Block-1,:) =  Image_Blocks(block_index).Blocks;
+             end
+         end
+end
+figure;subplot(1,2,1);imshow(Image_original); title('Original Image');
+subplot(1,2,2);imshow(uint8(Image)); title('Image after quantization');
+
+
+%------------------
+
+%%JPEG decoding
+
+%Rescaling 
+for block_index=1:Index
+    Image_Blocks(block_index).Blocks=Image_Blocks(block_index).Blocks.*T;
+end
+
+
+%---------
+
+%DCT inverse 
+for block_index = 1: Index
+    Image_Blocks(block_index).Blocks=transpose(c8)*(Image_Blocks(block_index).Blocks)*(c8);
+end
+%-------------   
+
+% MERGING THE BLOCKS
+Image_out = zeros(size(Image));
+
+Block_Index = 1; 
+for Row = 1: +Block_Size: r
+    for Column = 1: +Block_Size: c
+        
+        Height_Of_Block = size(Image_Blocks(Block_Index).Blocks);
+        Width_Of_Block = size(Image_Blocks(Block_Index).Blocks);
+        Image_out(Row:Row+Height_Of_Block-1,Column:Column+Width_Of_Block-1,:) = Image_Blocks(Block_Index).Blocks;
+        Block_Index = Block_Index + 1;
+    end  
+end
+figure;subplot(1,2,1);imshow(Image_original); title('Original Image');
+subplot(1,2,2);imshow(uint8(Image_out)); title('Output Image');
+
